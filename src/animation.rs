@@ -6,6 +6,9 @@ use crate::core::GameState;
 #[derive(Component)]
 pub struct Animated;
 
+#[derive(Component)]
+pub struct AnimationInit;
+
 #[derive(Resource, Default)]
 pub struct AnimationCharacterMap(HashMap<Entity, Entity>);
 

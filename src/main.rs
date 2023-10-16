@@ -7,13 +7,14 @@ mod assets;
 mod camera;
 mod core;
 mod input;
+mod level;
 mod physics;
 mod player;
 
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(ImagePlugin::default_nearest()),
             WorldInspectorPlugin::default(),
             RapierPhysicsPlugin::<NoUserData>::default(),
         ))
@@ -21,6 +22,7 @@ fn main() {
             core::CorePlugin,
             camera::CameraPlugin,
             assets::AssetPlugin,
+            level::LevelPlugin,
             player::PlayerPlugin,
             animation::AnimationPlugin,
             input::InputPlugin,

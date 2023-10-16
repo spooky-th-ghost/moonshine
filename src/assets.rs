@@ -12,15 +12,26 @@ impl Plugin for AssetPlugin {
         )
         .add_collection_to_loading_state::<_, CharacterCache>(GameState::Preload)
         .add_collection_to_loading_state::<_, PlayerAnimationCache>(GameState::Preload)
+        .add_collection_to_loading_state::<_, MaterialCache>(GameState::Preload)
         .add_dynamic_collection_to_loading_state::<_, StandardDynamicAssetCollection>(
             GameState::Preload,
-            "character_models.assets.ron",
+            "manifests/character_models.assets.ron",
         )
         .add_dynamic_collection_to_loading_state::<_, StandardDynamicAssetCollection>(
             GameState::Preload,
-            "player_animations.assets.ron",
+            "manifests/player_animations.assets.ron",
+        )
+        .add_dynamic_collection_to_loading_state::<_, StandardDynamicAssetCollection>(
+            GameState::Preload,
+            "manifests/materials.assets.ron",
         );
     }
+}
+
+#[derive(Resource, AssetCollection)]
+pub struct MaterialCache {
+    #[asset(key = "checkerboard")]
+    pub checkerboard: Handle<StandardMaterial>,
 }
 
 #[derive(Resource, AssetCollection)]

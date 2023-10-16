@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::{
-    animation::{Animated, AnimationCharacterMap},
+    animation::{Animated, AnimationCharacterMap, AnimationInit},
     assets::CharacterCache,
     core::{GameState, IndexPointer},
     physics::{Grounded, MovementBundle},
@@ -67,20 +67,20 @@ fn handle_grounded(
 }
 
 fn play_idle_animation(
+    mut commands: Commands,
     animation_map: Res<AnimationCharacterMap>,
-    player_query: Query<Entity, With<Player>>,
+    player_query: Query<Entity, (With<Player>, Without<AnimationInit>)>,
     mut animation_player_query: Query<&mut AnimationPlayer>,
     assets: Res<AssetServer>,
 ) {
-    println!("Running play idle animation");
     for entity in &player_query {
-        println!("Found the player");
         if let Some(animation_entity) = animation_map.get(entity) {
-            println!("Found an animation player");
             if let Ok(mut animation_player) = animation_player_query.get_mut(animation_entity) {
                 animation_player
                     .play(assets.load("models/uli.glb#Animation0"))
                     .repeat();
+
+                commands.entity(entity).insert(AnimationInit);
             }
         }
     }
