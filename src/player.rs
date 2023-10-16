@@ -1,16 +1,19 @@
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use leafwing_input_manager::prelude::*;
 
 use crate::{
     animation::{Animated, AnimationCharacterMap, AnimationInit},
     assets::CharacterCache,
     core::{GameState, IndexPointer},
+    input::{InputListenerBundle, PlayerAction},
     physics::{Grounded, MovementBundle},
 };
 
 #[derive(Resource, Default)]
 pub struct PlayerData {
+    pub player_position: Vec3,
     pub held_object_position: Vec3,
     pub held_object_index: IndexPointer,
     pub distance_from_floor: f32,
@@ -36,7 +39,17 @@ fn spawn_player(mut commands: Commands, characters: Res<CharacterCache>) {
             collider: Collider::capsule_y(0.5, 0.5),
             ..default()
         },
+        InputListenerBundle::input_map(),
     ));
+}
+
+fn update_player_data(
+    mut player_data: ResMut<PlayerData>,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    for transform in &player_query {
+        player_data.player_position = transform.translation;
+    }
 }
 
 fn handle_grounded(
@@ -93,7 +106,8 @@ impl Plugin for PlayerPlugin {
             .add_systems(OnEnter(GameState::Gameplay), spawn_player)
             .add_systems(
                 Update,
-                (handle_grounded, play_idle_animation).run_if(in_state(GameState::Gameplay)),
+                (handle_grounded, play_idle_animation, update_player_data)
+                    .run_if(in_state(GameState::Gameplay)),
             );
     }
 }
