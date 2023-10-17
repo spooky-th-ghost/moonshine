@@ -1,13 +1,76 @@
-use crate::core::Character;
+use crate::core::{Character, GameState};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 #[derive(Default, Component)]
 pub struct Direction(pub Vec3);
+
+impl Direction {
+    pub fn get(&self) -> Vec3 {
+        self.0
+    }
+
+    pub fn set(&mut self, value: Vec3) {
+        self.0 = value;
+    }
+
+    pub fn is_any(&self) -> bool {
+        self.0 != Vec3::ZERO
+    }
+}
+
 #[derive(Default, Component)]
 pub struct Drift(pub Vec3);
+
 #[derive(Default, Component)]
-pub struct Momentum(pub Vec3);
+pub struct Speed {
+    current: f32,
+    accel: f32,
+    base: f32,
+    max: f32,
+    base_max: f32,
+    accel_timer: Timer,
+}
+
+impl Speed {
+    pub fn reset(&mut self) {
+        self.current = self.base;
+        self.max = self.base_max;
+        self.accel_timer.reset();
+    }
+
+    pub fn accelerate(&mut self, delta: std::time::Duration, seconds: f32) {
+        self.accel_timer.tick(delta);
+        if self.accel_timer.finished() {
+            if self.current + 0.3 <= self.max {
+                self.current = self.current + (self.max - self.current) * (seconds * self.accel);
+            } else {
+                self.current = self.max;
+            }
+        }
+    }
+}
+
+#[derive(Default, Component)]
+pub struct Momentum(f32);
+
+impl Momentum {
+    pub fn get(&self) -> f32 {
+        self.0
+    }
+
+    pub fn set(&mut self, value: f32) {
+        self.0 = value;
+    }
+
+    pub fn is_any(&self) -> bool {
+        self.0 != 0.0
+    }
+
+    pub fn reset(&mut self) {
+        self.0 = 0.0;
+    }
+}
 #[derive(Component)]
 pub struct Grounded;
 
@@ -24,6 +87,7 @@ pub struct MovementBundle {
     pub character: Character,
     pub momentum: Momentum,
     pub locked_axes: LockedAxes,
+    pub speed: Speed,
 }
 
 impl Default for MovementBundle {
@@ -43,6 +107,14 @@ impl Default for MovementBundle {
             character: Character,
             momentum: Momentum::default(),
             locked_axes: LockedAxes::ROTATION_LOCKED,
+            speed: Speed {
+                base: 7.5,
+                current: 7.5,
+                accel: 1.0,
+                max: 15.0,
+                base_max: 15.0,
+                ..default()
+            },
         }
     }
 }
@@ -81,5 +153,71 @@ impl MovementBundle {
     pub fn with_gravity_scale(mut self, gravity_scale: f32) -> Self {
         self.gravity_scale = GravityScale(gravity_scale);
         self
+    }
+}
+
+fn rotate_to_direction(
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &Direction), (With<Character>, With<Grounded>)>,
+    mut rotation_target: Local<Transform>,
+) {
+    for (mut transform, direction) in &mut query {
+        rotation_target.translation = transform.translation;
+        let flat_velo_direction = Vec3::new(direction.0.x, 0.0, direction.0.z).normalize_or_zero();
+        if flat_velo_direction != Vec3::ZERO {
+            let target_position = rotation_target.translation + flat_velo_direction;
+
+            rotation_target.look_at(target_position, Vec3::Y);
+            let turn_speed = 10.0;
+
+            transform.rotation = transform
+                .rotation
+                .slerp(rotation_target.rotation, time.delta_seconds() * turn_speed);
+        }
+    }
+}
+
+fn handle_speed(
+    time: Res<Time>,
+    mut query: Query<(&mut Momentum, &mut Speed, &Direction), With<Grounded>>,
+) {
+    for (mut momentum, mut speed, direction) in &mut query {
+        if direction.is_any() {
+            speed.accelerate(time.delta(), time.delta_seconds());
+            momentum.set(speed.current);
+        } else {
+            momentum.reset();
+            speed.reset();
+        }
+    }
+}
+
+pub fn apply_momentum(mut query: Query<(&mut Velocity, &Transform, &Momentum)>) {
+    for (mut velocity, transform, momentum) in &mut query {
+        let mut speed_to_apply = Vec3::ZERO;
+        let mut should_change_velocity: bool = false;
+
+        if momentum.is_any() {
+            should_change_velocity = true;
+            let forward = transform.forward();
+            speed_to_apply += forward * momentum.get();
+        }
+
+        if should_change_velocity {
+            velocity.linvel.x = speed_to_apply.x;
+            velocity.linvel.z = speed_to_apply.z;
+        }
+    }
+}
+
+pub struct PhysicsPlugin;
+
+impl Plugin for PhysicsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (rotate_to_direction, apply_momentum, handle_speed)
+                .run_if(in_state(GameState::Gameplay)),
+        );
     }
 }

@@ -23,6 +23,7 @@ fn main() {
             camera::CameraPlugin,
             assets::AssetPlugin,
             level::LevelPlugin,
+            physics::PhysicsPlugin,
             player::PlayerPlugin,
             animation::AnimationPlugin,
             input::InputPlugin,
