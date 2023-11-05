@@ -108,11 +108,11 @@ impl Default for MovementBundle {
             momentum: Momentum::default(),
             locked_axes: LockedAxes::ROTATION_LOCKED,
             speed: Speed {
-                base: 7.5,
-                current: 7.5,
-                accel: 1.0,
-                max: 15.0,
-                base_max: 15.0,
+                base: 3.0,
+                current: 3.0,
+                accel: 0.5,
+                max: 7.5,
+                base_max: 7.5,
                 ..default()
             },
         }

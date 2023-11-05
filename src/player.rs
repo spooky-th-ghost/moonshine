@@ -26,8 +26,28 @@ pub struct PlayerData {
     pub jump_stage: u8,
 }
 
-#[derive(Component)]
-pub struct Player;
+#[derive(Event)]
+pub struct PlayerStateTransitionEvent {
+    pub current_state: Player,
+    pub new_state: Player,
+}
+
+#[derive(Component, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Player {
+    Diving,
+    BellySliding,
+    #[default]
+    Idle,
+    Walking,
+    Running,
+    LongJumping,
+    Rising,
+    Freefall,
+    Walljumping,
+    Carrying,
+    ButtSliding,
+    Sliding,
+}
 
 fn spawn_player(mut commands: Commands, characters: Res<CharacterCache>) {
     commands.spawn((
@@ -35,7 +55,7 @@ fn spawn_player(mut commands: Commands, characters: Res<CharacterCache>) {
             scene: characters.uli.clone_weak(),
             ..default()
         },
-        Player,
+        Player::Idle,
         Animated,
         MovementBundle {
             collider: Collider::capsule_y(0.5, 0.5),
@@ -151,6 +171,22 @@ fn play_idle_animation(
     }
 }
 
+fn handle_state_transition_events(
+    mut state_events: EventWriter<PlayerStateTransitionEvent>,
+    player_query: Query<&Player>,
+    mut previous_state: Local<Player>,
+) {
+    for current_state in &player_query {
+        if *current_state != *previous_state {
+            state_events.send(PlayerStateTransitionEvent {
+                current_state: *previous_state,
+                new_state: *current_state,
+            });
+        }
+        *previous_state = *current_state;
+    }
+}
+
 fn run_to_idle(
     mut animation_transitions: EventWriter<AnimationTransitionEvent>,
     animation_cache: Res<PlayerAnimationCache>,
@@ -162,13 +198,13 @@ fn run_to_idle(
                 animation_transitions.send(AnimationTransitionEvent {
                     entity,
                     clip: animation_cache.run.clone_weak(),
-                    transition: Duration::from_secs_f32(0.1),
+                    transition: Duration::from_secs_f32(0.2),
                 });
             } else {
                 animation_transitions.send(AnimationTransitionEvent {
                     entity,
                     clip: animation_cache.idle.clone_weak(),
-                    transition: Duration::from_secs_f32(0.1),
+                    transition: Duration::from_secs_f32(0.3),
                 });
             }
         }

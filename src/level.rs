@@ -9,6 +9,7 @@ pub fn spawn_level(
     mut meshes: ResMut<Assets<Mesh>>,
     materials: Res<MaterialCache>,
 ) {
+    commands.spawn(DirectionalLightBundle::default());
     commands
         .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Box::new(10.0, 0.5, 10.0))),
