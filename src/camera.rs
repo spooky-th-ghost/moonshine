@@ -26,15 +26,15 @@ impl CameraMode {
     fn shift_up(&self) -> CameraMode {
         match self {
             CameraMode::Fixed => CameraMode::Free,
-            CameraMode::Free => CameraMode::Follow,
+            CameraMode::Free => CameraMode::Fixed,
             CameraMode::Follow => CameraMode::Fixed,
         }
     }
     fn shift_down(&self) -> CameraMode {
         match self {
             CameraMode::Fixed => CameraMode::Follow,
-            CameraMode::Free => CameraMode::Fixed,
-            CameraMode::Follow => CameraMode::Free,
+            CameraMode::Free => CameraMode::Follow,
+            CameraMode::Follow => CameraMode::Follow,
         }
     }
 }
@@ -72,7 +72,7 @@ fn position_camera(
 ) {
     for (mut transform, camera) in &mut camera_query {
         match camera.camera_mode {
-            CameraMode::Fixed => {
+            CameraMode::Fixed | CameraMode::Free => {
                 let lerped_position = transform.translation.lerp(
                     camera.desired_position,
                     time.delta_seconds() * camera.easing,
@@ -107,17 +107,15 @@ fn rotate_camera(
                         camera.angle += 45.0;
                     }
 
-                    if camera.angle as u16 % 45 != 0 {
-                        let angle_i16 = camera.angle as i16;
-                        let angle_difference = angle_i16 % 45;
-                        let angle_change = if angle_difference <= 22 {
-                            -1 * angle_difference
-                        } else {
-                            45 - angle_difference
-                        };
-                        let new_angle = (angle_i16 + angle_change) as f32;
-                        camera.angle = new_angle;
-                    }
+                    let angle_i16 = camera.angle as i16;
+                    let angle_difference = angle_i16 % 45;
+                    let angle_change = if angle_difference <= 22 {
+                        -1 * angle_difference
+                    } else {
+                        45 - angle_difference
+                    };
+                    let new_angle = (angle_i16 + angle_change) as f32;
+                    camera.angle = new_angle;
                 }
                 CameraMode::Free => {
                     if action.pressed(PlayerAction::CamRotateLeft) {
