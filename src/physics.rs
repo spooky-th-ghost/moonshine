@@ -17,6 +17,10 @@ impl Direction {
     pub fn is_any(&self) -> bool {
         self.0 != Vec3::ZERO
     }
+
+    pub fn is_active(&self) -> bool {
+        self.0.length() >= 0.3
+    }
 }
 
 #[derive(Default, Component)]
@@ -42,7 +46,7 @@ impl Speed {
     pub fn accelerate(&mut self, delta: std::time::Duration, seconds: f32) {
         self.accel_timer.tick(delta);
         if self.accel_timer.finished() {
-            if self.current + 0.3 <= self.max {
+            if self.current < self.max {
                 self.current = self.current + (self.max - self.current) * (seconds * self.accel);
             } else {
                 self.current = self.max;
@@ -110,9 +114,10 @@ impl Default for MovementBundle {
             speed: Speed {
                 base: 3.0,
                 current: 3.0,
-                accel: 0.5,
+                accel: 2.5,
                 max: 7.5,
                 base_max: 7.5,
+                accel_timer: Timer::from_seconds(0.6, TimerMode::Once),
                 ..default()
             },
         }
@@ -158,17 +163,17 @@ impl MovementBundle {
 
 fn rotate_to_direction(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &Direction), (With<Character>, With<Grounded>)>,
+    mut query: Query<(&mut Transform, &Direction, &Speed), (With<Character>, With<Grounded>)>,
     mut rotation_target: Local<Transform>,
 ) {
-    for (mut transform, direction) in &mut query {
+    for (mut transform, direction, speed) in &mut query {
         rotation_target.translation = transform.translation;
         let flat_velo_direction = Vec3::new(direction.0.x, 0.0, direction.0.z).normalize_or_zero();
         if flat_velo_direction != Vec3::ZERO {
             let target_position = rotation_target.translation + flat_velo_direction;
 
             rotation_target.look_at(target_position, Vec3::Y);
-            let turn_speed = 10.0;
+            let turn_speed = speed.current * 0.85;
 
             transform.rotation = transform
                 .rotation
@@ -182,7 +187,7 @@ fn handle_speed(
     mut query: Query<(&mut Momentum, &mut Speed, &Direction), With<Grounded>>,
 ) {
     for (mut momentum, mut speed, direction) in &mut query {
-        if direction.is_any() {
+        if direction.is_active() {
             speed.accelerate(time.delta(), time.delta_seconds());
             momentum.set(speed.current);
         } else {

@@ -49,7 +49,11 @@ pub enum Player {
     Sliding,
 }
 
-fn spawn_player(mut commands: Commands, characters: Res<CharacterCache>) {
+fn spawn_player(
+    mut commands: Commands,
+    characters: Res<CharacterCache>,
+    particles: Res<crate::particles::ParticleCache>,
+) {
     commands.spawn((
         SceneBundle {
             scene: characters.uli.clone_weak(),
@@ -63,6 +67,14 @@ fn spawn_player(mut commands: Commands, characters: Res<CharacterCache>) {
         },
         InputListenerBundle::input_map(),
     ));
+
+    use bevy_hanabi::prelude::*;
+
+    commands.spawn(ParticleEffectBundle {
+        effect: ParticleEffect::new(particles.dust.clone_weak()),
+        transform: Transform::from_translation(Vec3::Y),
+        ..default()
+    });
 }
 
 fn update_player_data(
@@ -148,7 +160,7 @@ fn get_direction_in_camera_space(
     let right_vec: Vec3 = x * right;
     let forward_vec: Vec3 = z * forward;
 
-    (right_vec + forward_vec).normalize_or_zero()
+    (right_vec + forward_vec)
 }
 
 fn play_idle_animation(

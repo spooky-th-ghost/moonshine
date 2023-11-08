@@ -8,6 +8,7 @@ mod camera;
 mod core;
 mod input;
 mod level;
+mod particles;
 mod physics;
 mod player;
 
@@ -27,6 +28,7 @@ fn main() {
             player::PlayerPlugin,
             animation::AnimationPlugin,
             input::InputPlugin,
+            particles::ParticlePlugin,
         ))
         .run();
 }
