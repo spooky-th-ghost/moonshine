@@ -18,7 +18,6 @@ impl Direction {
         self.0 != Vec3::ZERO
     }
 }
-
 #[derive(Default, Component)]
 pub struct Drift(pub Vec3);
 
