@@ -1,5 +1,6 @@
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
+use bevy_hanabi::prelude::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::time::Duration;
@@ -28,12 +29,18 @@ pub struct PlayerData {
 
 #[derive(Event)]
 pub struct PlayerStateTransitionEvent {
-    pub current_state: Player,
-    pub new_state: Player,
+    pub current_state: PlayerState,
+    pub new_state: PlayerState,
 }
 
-#[derive(Component, Default, Clone, Copy, PartialEq, Eq)]
-pub enum Player {
+#[derive(Component, Default, Clone, Copy, Deref)]
+pub struct Player {
+    #[deref]
+    pub state: PlayerState,
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum PlayerState {
     Diving,
     BellySliding,
     #[default]
@@ -49,17 +56,15 @@ pub enum Player {
     Sliding,
 }
 
-fn spawn_player(
-    mut commands: Commands,
-    characters: Res<CharacterCache>,
-    particles: Res<crate::particles::ParticleCache>,
-) {
+fn spawn_player(mut commands: Commands, characters: Res<CharacterCache>) {
     commands.spawn((
         SceneBundle {
             scene: characters.uli.clone_weak(),
             ..default()
         },
-        Player::Idle,
+        Player {
+            state: PlayerState::Idle,
+        },
         Animated,
         MovementBundle {
             collider: Collider::capsule_y(0.5, 0.5),
@@ -67,14 +72,6 @@ fn spawn_player(
         },
         InputListenerBundle::input_map(),
     ));
-
-    use bevy_hanabi::prelude::*;
-
-    commands.spawn(ParticleEffectBundle {
-        effect: ParticleEffect::new(particles.dust.clone_weak()),
-        transform: Transform::from_translation(Vec3::Y),
-        ..default()
-    });
 }
 
 fn update_player_data(
@@ -160,7 +157,7 @@ fn get_direction_in_camera_space(
     let right_vec: Vec3 = x * right;
     let forward_vec: Vec3 = z * forward;
 
-    (right_vec + forward_vec)
+    right_vec + forward_vec
 }
 
 fn play_idle_animation(
@@ -186,38 +183,55 @@ fn play_idle_animation(
 fn handle_state_transition_events(
     mut state_events: EventWriter<PlayerStateTransitionEvent>,
     player_query: Query<&Player>,
-    mut previous_state: Local<Player>,
+    mut previous_state: Local<PlayerState>,
 ) {
-    for current_state in &player_query {
-        if *current_state != *previous_state {
+    for player in &player_query {
+        if player.state != *previous_state {
             state_events.send(PlayerStateTransitionEvent {
                 current_state: *previous_state,
-                new_state: *current_state,
+                new_state: player.state,
             });
         }
-        *previous_state = *current_state;
+        *previous_state = player.state;
     }
 }
 
-fn run_to_idle(
+fn transition_player_state(
+    mut commands: Commands,
     mut animation_transitions: EventWriter<AnimationTransitionEvent>,
     animation_cache: Res<PlayerAnimationCache>,
-    player_query: Query<(Entity, &Direction, Has<Grounded>), With<Player>>,
+    particles: Res<crate::particles::ParticleCache>,
+    mut player_query: Query<(Entity, &mut Player, &Direction, &Transform, Has<Grounded>)>,
 ) {
-    for (entity, direction, is_grounded) in &player_query {
+    for (entity, mut player, direction, transform, is_grounded) in &mut player_query {
         if is_grounded {
-            if direction.is_any() {
-                animation_transitions.send(AnimationTransitionEvent {
-                    entity,
-                    clip: animation_cache.run.clone_weak(),
-                    transition: Duration::from_secs_f32(0.2),
-                });
+            if direction.is_active() {
+                if player.state != PlayerState::Running {
+                    player.state = PlayerState::Running;
+                    animation_transitions.send(AnimationTransitionEvent {
+                        entity,
+                        clip: animation_cache.run.clone_weak(),
+                        transition: Duration::from_secs_f32(0.2),
+                    });
+
+                    commands.spawn((
+                        ParticleEffectBundle {
+                            effect: ParticleEffect::new(particles.dust.clone_weak()),
+                            transform: Transform::from_translation(transform.translation),
+                            ..default()
+                        },
+                        crate::particles::ParticleDestructor::new(4.0),
+                    ));
+                }
             } else {
-                animation_transitions.send(AnimationTransitionEvent {
-                    entity,
-                    clip: animation_cache.idle.clone_weak(),
-                    transition: Duration::from_secs_f32(0.3),
-                });
+                if player.state != PlayerState::Idle {
+                    player.state = PlayerState::Idle;
+                    animation_transitions.send(AnimationTransitionEvent {
+                        entity,
+                        clip: animation_cache.idle.clone_weak(),
+                        transition: Duration::from_secs_f32(0.3),
+                    });
+                }
             }
         }
     }
@@ -236,7 +250,7 @@ impl Plugin for PlayerPlugin {
                     play_idle_animation,
                     update_player_data,
                     set_player_direction,
-                    run_to_idle,
+                    transition_player_state,
                 )
                     .run_if(in_state(GameState::Gameplay)),
             );

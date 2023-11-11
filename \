@@ -28,11 +28,7 @@ impl ParticleDestructor {
 impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(HanabiPlugin)
-            .add_systems(Startup, initialize_particle_cache)
-            .add_systems(
-                Update,
-                manage_particle_emiters.run_if(in_state(crate::core::GameState::Gameplay)),
-            );
+            .add_systems(Startup, initialize_particle_cache);
     }
 }
 
@@ -43,10 +39,6 @@ fn manage_particle_emiters(
 ) {
     for (entity, mut destructor) in &mut destructor_query {
         destructor.tick(time.delta());
-
-        if destructor.finished() {
-            commands.entity(entity).despawn_recursive();
-        }
     }
 }
 
@@ -81,10 +73,10 @@ fn initialize_particle_cache(
     // Initialize the total lifetime of the particle, that is
     // the time for which it's simulated and rendered. This modifier
     // is almost always required, otherwise the particles won't show.
-    let lifetime = module.lit(0.5); // literal value "10.0"
+    let lifetime = module.lit(1.); // literal value "10.0"
     let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
 
-    let init_size = SetAttributeModifier::new(Attribute::SIZE, module.lit(0.5));
+    let init_size = SetAttributeModifier::new(Attribute::SIZE, module.lit(0.25));
 
     // Every frame, add a gravity-like acceleration downward
     let accel = module.lit(Vec3::new(0., -3., 0.));
@@ -95,9 +87,9 @@ fn initialize_particle_cache(
     // Create the effect asset
     let effect = EffectAsset::new(
         // Maximum number of particles alive at a time
-        3,
+        4,
         // Spawn at a rate of 5 particles per second
-        Spawner::once(3.0.into(), true),
+        Spawner::once(4.0.into(), true),
         // Move the expression module into the asset
         module,
     )
