@@ -8,7 +8,7 @@ pub struct ParticleCache {
     pub dust: Handle<EffectAsset>,
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct ParticleDestructor(Timer);
 
 impl ParticleDestructor {
@@ -22,6 +22,25 @@ impl ParticleDestructor {
 
     pub fn finished(&self) -> bool {
         self.0.finished()
+    }
+}
+
+#[derive(Bundle, Default)]
+pub struct OneTimeParticleBundle {
+    particle_bundle: ParticleEffectBundle,
+    particle_destructor: ParticleDestructor,
+}
+
+impl OneTimeParticleBundle {
+    pub fn new(translation: Vec3, lifetime: f32, effect_handle: Handle<EffectAsset>) -> Self {
+        OneTimeParticleBundle {
+            particle_bundle: ParticleEffectBundle {
+                effect: ParticleEffect::new(effect_handle),
+                transform: Transform::from_translation(translation),
+                ..default()
+            },
+            particle_destructor: ParticleDestructor::new(lifetime),
+        }
     }
 }
 

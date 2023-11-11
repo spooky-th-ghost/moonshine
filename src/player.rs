@@ -11,6 +11,7 @@ use crate::{
     camera::MainCamera,
     core::{GameState, IndexPointer},
     input::{InputListenerBundle, PlayerAction},
+    particles::OneTimeParticleBundle,
     physics::{Direction, Grounded, Momentum, MovementBundle, Speed},
 };
 
@@ -214,13 +215,10 @@ fn transition_player_state(
                         transition: Duration::from_secs_f32(0.2),
                     });
 
-                    commands.spawn((
-                        ParticleEffectBundle {
-                            effect: ParticleEffect::new(particles.dust.clone_weak()),
-                            transform: Transform::from_translation(transform.translation),
-                            ..default()
-                        },
-                        crate::particles::ParticleDestructor::new(4.0),
+                    commands.spawn(OneTimeParticleBundle::new(
+                        transform.translation,
+                        4.0,
+                        particles.dust.clone_weak(),
                     ));
                 }
             } else {
