@@ -1,4 +1,4 @@
-use crate::core::{Character, GameState};
+use crate::core::{Character, GameState, Unit};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
@@ -26,7 +26,7 @@ impl Direction {
 #[derive(Default, Component)]
 pub struct Drift(pub Vec3);
 
-#[derive(Default, Component)]
+#[derive(Component)]
 pub struct Speed {
     current: f32,
     accel: f32,
@@ -34,6 +34,7 @@ pub struct Speed {
     max: f32,
     base_max: f32,
     accel_timer: Timer,
+    reset_timer: Timer,
 }
 
 impl Speed {
@@ -41,6 +42,33 @@ impl Speed {
         self.current = self.base;
         self.max = self.base_max;
         self.accel_timer.reset();
+    }
+
+    pub fn tick_reset_timer(&mut self, delta: std::time::Duration) {
+        self.reset_timer.tick(delta);
+    }
+
+    pub fn reset_reset_timer(&mut self) {
+        self.reset_timer = Timer::from_seconds(0.25, TimerMode::Once);
+    }
+
+    pub fn should_reset(&self) -> bool {
+        self.reset_timer.finished()
+    }
+
+    pub fn apply_speed(&mut self, value: f32) {
+        self.current += value;
+        self.cap();
+    }
+
+    pub fn cap(&mut self) {
+        if self.current > 0.0 {
+            if self.current >= self.max {
+                self.current = self.max;
+            }
+        } else {
+            self.current = self.current * 0.5;
+        }
     }
 
     pub fn accelerate(&mut self, delta: std::time::Duration, seconds: f32) {
@@ -51,6 +79,20 @@ impl Speed {
             } else {
                 self.current = self.max;
             }
+        }
+    }
+}
+
+impl Default for Speed {
+    fn default() -> Self {
+        Speed {
+            base: 3.0,
+            current: 3.0,
+            accel: 2.5,
+            max: 24.0,
+            base_max: 24.0,
+            accel_timer: Timer::from_seconds(0.6, TimerMode::Once),
+            reset_timer: Timer::from_seconds(0.25, TimerMode::Once),
         }
     }
 }
@@ -97,13 +139,13 @@ pub struct MovementBundle {
 impl Default for MovementBundle {
     fn default() -> Self {
         MovementBundle {
-            rigidbody: RigidBody::Dynamic,
+            rigidbody: RigidBody::KinematicPositionBased,
             collider: Collider::default(),
             external_impulse: ExternalImpulse::default(),
             velocity: Velocity::default(),
             friction: Friction::default(),
             damping: Damping {
-                linear_damping: 6.0,
+                linear_damping: 2.0,
                 ..default()
             },
             gravity_scale: GravityScale::default(),
@@ -111,15 +153,7 @@ impl Default for MovementBundle {
             character: Character,
             momentum: Momentum::default(),
             locked_axes: LockedAxes::ROTATION_LOCKED,
-            speed: Speed {
-                base: 3.0,
-                current: 3.0,
-                accel: 2.5,
-                max: 7.5,
-                base_max: 7.5,
-                accel_timer: Timer::from_seconds(0.6, TimerMode::Once),
-                ..default()
-            },
+            speed: Speed::default(),
         }
     }
 }
@@ -190,9 +224,13 @@ fn handle_speed(
         if direction.is_active() {
             speed.accelerate(time.delta(), time.delta_seconds());
             momentum.set(speed.current);
+            speed.reset_reset_timer();
         } else {
             momentum.reset();
-            speed.reset();
+            speed.tick_reset_timer(time.delta());
+            if speed.should_reset() {
+                speed.reset();
+            }
         }
     }
 }
